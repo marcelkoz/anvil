@@ -17,34 +17,33 @@ def command_init(args: typing.List[str]):
     data = create_data(location)
     _ = create_run(location, data, config)
 
-def create_config(location: Path):
-    location = location / 'config'
-    location.mkdir(exist_ok=True)
+def create_folder(name: str):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            location = list(args)[0] / name
+            location.mkdir(exist_ok=True)
 
+            func(location, *args[1:], **kwargs)
+            return location
+        return wrapper
+    return decorator
+
+@create_folder('config')
+def create_config(location: Path):
     copy_item(location, 'eula.txt')
     copy_item(location, 'server.properties')
 
-    return location
-
+@create_folder('data')
 def create_data(location: Path):
-    location = location / 'data'
-    location.mkdir(exist_ok=True)
-
     (location / 'worlds').mkdir(exist_ok=True)
     (location / 'logs').mkdir(exist_ok=True)
 
-    return location
-
+@create_folder('run')
 def create_run(location: Path, data: Path, config: Path):
-    location = location / 'run'
-    location.mkdir(exist_ok=True)
-
     link_item(config, location, 'eula.txt')
     link_item(config, location, 'server.properties')
     link_item(data, location, 'logs')
     link_item(data, location, 'worlds')
-
-    return location
 
 def copy_item(destination: Path, item: str):
     # TODO: change to anvil install location + file_name
