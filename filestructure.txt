@@ -1,0 +1,19 @@
+-  file or directory
+-> symlink
+
+config - configurations for various things - server, anvil, plugins etc
+  - eula.txt
+  - server.properties
+
+run - server jars with libraries and other necessary data
+  -> eula.txt
+  -> server.properties
+  -> logs
+  - mcserver-19.0.jar
+
+data - storage, worlds, databases, logs etc
+  - worlds
+    - world1
+    - world2
+  - logs
+    - logfile1.log
