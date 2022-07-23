@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+import traceback
 import shutil
 import typing
 import sys
 import os
+
+ident = '  '
 
 def command_init(args: typing.List[str]):
     do_current_location = len(args) == 0
@@ -13,9 +16,13 @@ def command_init(args: typing.List[str]):
     if not location.exists():
         raise Exception(f'Location "{location}" does not exist')
 
-    config = create_config(location)
-    data = create_data(location)
-    _ = create_run(location, data, config)
+    print(f'Working directory: {location}')
+    print('Creating server environment...')
+
+    print('Filesystem:')
+    config = run_task('create config', create_config, location)
+    data = run_task('create data', create_data, location)
+    _ = run_task('create run', create_run, location, data, config)
 
 def context(name: str):
     def decorator(func):
@@ -55,6 +62,19 @@ def link_item(source: Path, destination: Path, item: str):
     source = source / item
     if not destination.exists():
         os.symlink(source, destination)
+
+def run_task(description, func, *args):
+    try:
+        result = func(*args)
+    except Exception as e:
+        print(ident, f'[✗] {description}')
+        print(f'\nFailed: {e}')
+        print('Traceback:')
+        print(''.join(traceback.TracebackException.from_exception(e).format()))
+        exit(1)
+
+    print(ident, f'[✓] {description}')
+    return result
 
 def main():
     args = sys.argv
