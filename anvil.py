@@ -17,7 +17,7 @@ def command_init(args: typing.List[str]):
     data = create_data(location)
     _ = create_run(location, data, config)
 
-def create_folder(name: str):
+def context(name: str):
     def decorator(func):
         def wrapper(*args, **kwargs):
             location = list(args)[0] / name
@@ -28,17 +28,17 @@ def create_folder(name: str):
         return wrapper
     return decorator
 
-@create_folder('config')
+@context('config')
 def create_config(location: Path):
     copy_item(location, 'eula.txt')
     copy_item(location, 'server.properties')
 
-@create_folder('data')
+@context('data')
 def create_data(location: Path):
     (location / 'worlds').mkdir(exist_ok=True)
     (location / 'logs').mkdir(exist_ok=True)
 
-@create_folder('run')
+@context('run')
 def create_run(location: Path, data: Path, config: Path):
     link_item(config, location, 'eula.txt')
     link_item(config, location, 'server.properties')
