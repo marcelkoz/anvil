@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+import subprocess
 import traceback
 import shutil
 import typing
@@ -9,9 +10,41 @@ import os
 
 ident = '  '
 
+class Lock:
+    def __init__(self, root: Path):
+        self.__root = root
+        # TODO: determine lock mechanism dynamically
+        self.__locked = False
+        self.__files = [
+            'config/server.properties',
+            'config/eula.txt',
+        ]
+
+        self.__file_map = map(lambda f: Path(self.__root, f).resolve(), self.__files)
+
+    def lock(self):
+        for path in self.__file_map:
+            # r-- r-- ---
+            os.chmod(path, 0o440)
+
+    def unlock(self):
+        for path in self.__file_map:
+            # rw- rw- ---
+            os.chmod(path, 0o660)
+
+def command_run(args: typing.List[str]):
+    memory = 1
+    world_name = args[0]
+    java_args = '-jar -Xmx{0}G -Xms{0}G'.format(memory)
+    server_args = '--nogui --universe worlds --world {1}'.format(world_name)
+
+
+
 def command_init(args: typing.List[str]):
-    do_current_location = len(args) == 0
+    do_current_location = len(args) == 1
     location = Path(os.getcwd() if do_current_location else args[0]).resolve()
+    jar = Path(args[1]).resolve()
+    jar_name = jar.name
 
     if not location.exists():
         raise Exception(f'Location "{location}" does not exist')
@@ -22,7 +55,19 @@ def command_init(args: typing.List[str]):
     print('Filesystem:')
     config = run_task('create config', create_config, location)
     data = run_task('create data', create_data, location)
-    _ = run_task('create run', create_run, location, data, config)
+    run_task('create run', create_run, location, data, config)
+
+    print('Embed server:')
+    lock = Lock(location)
+    run_task('lock config files', lock.lock)
+    run_task('copy server jar', copy_item, location / 'run', jar_name, jar.parents[0])
+    prev = os.getcwd()
+    os.chdir(location / 'run')
+    run_task('run server jar', subprocess.run, ['java', '-jar', location / 'run' / jar_name, '--nogui'])
+    os.chdir(prev)
+    run_task('unlock config files', lock.unlock)
+
+    print('Server environment initialised')
 
 def context(name: str):
     def decorator(func):
@@ -52,9 +97,9 @@ def create_run(location: Path, data: Path, config: Path):
     link_item(data, location, 'logs')
     link_item(data, location, 'worlds')
 
-def copy_item(destination: Path, item: str):
+def copy_item(destination: Path, item: str, source: Path = Path('.')):
     # TODO: change to anvil install location + file_name
-    file_path = Path(item)
+    file_path = Path(source, item)
     shutil.copy(file_path, destination)
 
 def link_item(source: Path, destination: Path, item: str):
@@ -63,7 +108,7 @@ def link_item(source: Path, destination: Path, item: str):
     if not destination.exists():
         os.symlink(source, destination)
 
-def run_task(description, func, *args):
+def run_task(description: str, func, *args):
     try:
         result = func(*args)
     except Exception as e:
@@ -81,6 +126,7 @@ def main():
 
     command_dispatch = {
         'init': command_init,
+        'run': command_run,
     }
 
     command = args[1]
