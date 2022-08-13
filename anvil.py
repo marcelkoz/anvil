@@ -8,6 +8,8 @@ import typing
 import sys
 import os
 
+from pkg_resources import empty_provider
+
 ident = '  '
 
 class Lock:
@@ -85,6 +87,11 @@ def create_config(location: Path):
     copy_item(location, 'eula.txt')
     copy_item(location, 'server.properties')
 
+    init_json_file(location, 'ops.json')
+    init_json_file(location, 'whitelist.json')
+    init_json_file(location, 'banned-ips.json')
+    init_json_file(location, 'banned-players.json')
+
 @context('data')
 def create_data(location: Path):
     (location / 'worlds').mkdir(exist_ok=True)
@@ -96,6 +103,10 @@ def create_run(location: Path, data: Path, config: Path):
     link_item(config, location, 'server.properties')
     link_item(data, location, 'logs')
     link_item(data, location, 'worlds')
+
+def init_json_file(destination: Path, item: str):
+    file_path = destination / item
+    shutil.copy(Path('./empty.json'), file_path)
 
 def copy_item(destination: Path, item: str, source: Path = Path('.')):
     # TODO: change to anvil install location + file_name
