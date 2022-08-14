@@ -2,8 +2,8 @@
 
 from pathlib import Path
 import subprocess
-import time
 import traceback
+import argparse
 import shutil
 import typing
 import stat
@@ -52,10 +52,9 @@ def run_init_jar(location: Path, jar_name: str):
     jar_path = location / 'run' / jar_name
     subprocess.run(['java', '-jar', jar_path, '--nogui'], stdout=out, stderr=err)
 
-def command_init(args: typing.List[str]):
-    do_current_location = len(args) == 1
-    location = Path(os.getcwd() if do_current_location else args[0]).resolve()
-    jar = Path(args[1]).resolve()
+def command_init(args):
+    location = Path(args.ROOT).resolve()
+    jar = Path(args.JAR).resolve()
     jar_name = jar.name
 
     if not location.exists():
@@ -149,16 +148,38 @@ def run_task(description: str, func, *args):
     print(ident, f'[✓] {description}')
     return result
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='CLI utility for managing Minecraft Server Environments')
+    action = parser.add_subparsers(dest='action')
+
+    # init
+    init_action = action.add_parser('init', help='initialise server environment')
+    init_action.add_argument('ROOT', type=str,
+                             help='path to the root (directory) of the new server environment')
+    init_action.add_argument('JAR', type=str,
+                             help='path to the server jar to use when unpacking')
+
+    # run
+    run_action = action.add_parser('run', help='run server environment')
+    run_action.add_argument('ROOT', type=str,
+                             help='path to the root (directory) of the server environment to run')
+    
+
+    return parser.parse_args(), parser
+
 def main():
-    args = sys.argv
+    args, parser = parse_args()
+
+    if args.action == None:
+        parser.print_help()
+        exit(1)
 
     command_dispatch = {
         'init': command_init,
         'run': command_run,
     }
 
-    command = args[1]
-    command_dispatch[command](args[2:])
+    command_dispatch[args.action](args)
 
 if __name__ == '__main__':
     main()
