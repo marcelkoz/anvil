@@ -58,7 +58,10 @@ def command_init(args):
     jar_name = jar.name
 
     if not location.exists():
-        raise Exception(f'Location "{location}" does not exist')
+        os.makedirs(location)
+
+    if not jar.exists():
+        display_error(Exception(f'Server jar "{jar}" does not exist.'))
 
     print(f'Working directory: {location}')
     print('Creating server environment...')
@@ -140,13 +143,16 @@ def run_task(description: str, func, *args):
         result = func(*args)
     except Exception as e:
         print(ident, f'[✗] {description}')
-        print(f'\nFailed: {e}')
-        print('Traceback:')
-        print(''.join(traceback.TracebackException.from_exception(e).format()))
-        exit(1)
+        display_error(e)
 
     print(ident, f'[✓] {description}')
     return result
+
+def display_error(exception: Exception):
+    print(f'\nFailed: {exception}')
+    print('Traceback:')
+    print(''.join(traceback.TracebackException.from_exception(exception).format()))
+    exit(1)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='CLI utility for managing Minecraft Server Environments')
