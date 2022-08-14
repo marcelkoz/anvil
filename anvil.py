@@ -40,17 +40,26 @@ class Lock:
 
             self.__locked = False
 
-def command_run(args: typing.List[str]):
-    memory = 1
-    world_name = args[0]
-    java_args = '-jar -Xmx{0}G -Xms{0}G'.format(memory)
-    server_args = '--nogui --universe worlds --world {1}'.format(world_name)
+def command_run(args):
+    location = Path(args.ROOT).resolve()
+    world = args.WORLD
+    jar = (location / 'run' / 'server.jar').resolve()
+    memory = args.memory
 
-def run_init_jar(location: Path, jar_name: str):
-    out = open(location / 'init_jar_output.txt', 'w')
-    err = open(location / 'init_jar_errors.txt', 'w')
-    jar_path = location / 'run' / jar_name
-    subprocess.run(['java', '-jar', jar_path, '--nogui'], stdout=out, stderr=err)
+    java_args = '-jar -Xmx{0} -Xms{0} {1}'.format(memory, jar)
+    server_args = '--nogui --universe worlds --world {0}'.format(world)
+    command = f'java {java_args} {server_args}'
+
+    print(f'Working Directory: {location}')
+    print(f'Server JAR: {jar}')
+    if not location.exists():
+        display_error(Exception(f'Root directory "{jar}" does not exist.'))
+    if not jar.exists():
+        display_error(Exception(f'Server jar "{jar}" does not exist.'))
+
+    print(f'Running Command:\n{command}')
+    os.chdir(location / 'run')
+    subprocess.run(command, shell=True, stdout=subprocess.DEVNULL)
 
 def command_init(args):
     location = Path(args.ROOT).resolve()
@@ -82,6 +91,12 @@ def command_init(args):
     run_task('unlock config files', lock.unlock)
 
     print('Server environment initialised')
+
+def run_init_jar(location: Path, jar_name: str):
+    out = open(location / 'init_jar_output.txt', 'w')
+    err = open(location / 'init_jar_errors.txt', 'w')
+    jar_path = location / 'run' / jar_name
+    subprocess.run(['java', '-jar', jar_path, '--nogui'], stdout=out, stderr=err)
 
 def context(name: str):
     def decorator(func):
@@ -169,7 +184,10 @@ def parse_args():
     run_action = action.add_parser('run', help='run server environment')
     run_action.add_argument('ROOT', type=str,
                              help='path to the root (directory) of the server environment to run')
-    
+    run_action.add_argument('WORLD', type=str,
+                             help='the name of the world to load (without path)')
+    run_action.add_argument('--memory', type=str, default='1000M',
+                             help='memory the JVM should allocate for the server, defaults to 1000M')
 
     return parser.parse_args(), parser
 
