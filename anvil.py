@@ -10,8 +10,6 @@ import stat
 import sys
 import os
 
-from pkg_resources import empty_provider
-
 ident = '  '
 
 class Lock:
