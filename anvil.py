@@ -2,9 +2,11 @@
 
 from pathlib import Path
 import subprocess
+import time
 import traceback
 import shutil
 import typing
+import stat
 import sys
 import os
 
@@ -22,17 +24,23 @@ class Lock:
             'config/eula.txt',
         ]
 
-        self.__file_map = map(lambda f: Path(self.__root, f).resolve(), self.__files)
+        self.__file_map = list(map(lambda f: Path(self.__root, f).resolve(), self.__files))
 
     def lock(self):
-        for path in self.__file_map:
-            # r-- r-- ---
-            os.chmod(path, 0o440)
+        if not self.__locked:
+            for path in self.__file_map:
+                # r-- r-- ---
+                os.chmod(path, 0o440)
+
+            self.__locked = True
 
     def unlock(self):
-        for path in self.__file_map:
-            # rw- rw- ---
-            os.chmod(path, 0o660)
+        if self.__locked:
+            for path in self.__file_map:
+                # rw- rw- ---
+                os.chmod(path, 0o660)
+
+            self.__locked = False
 
 def command_run(args: typing.List[str]):
     memory = 1
@@ -40,7 +48,11 @@ def command_run(args: typing.List[str]):
     java_args = '-jar -Xmx{0}G -Xms{0}G'.format(memory)
     server_args = '--nogui --universe worlds --world {1}'.format(world_name)
 
-
+def run_init_jar(location: Path, jar_name: str):
+    out = open(location / 'init_jar_output.txt', 'w')
+    err = open(location / 'init_jar_errors.txt', 'w')
+    jar_path = location / 'run' / jar_name
+    subprocess.run(['java', '-jar', jar_path, '--nogui'], stdout=out, stderr=err)
 
 def command_init(args: typing.List[str]):
     do_current_location = len(args) == 1
@@ -65,7 +77,7 @@ def command_init(args: typing.List[str]):
     run_task('copy server jar', copy_item, location / 'run', jar_name, jar.parents[0])
     prev = os.getcwd()
     os.chdir(location / 'run')
-    run_task('run server jar', subprocess.run, ['java', '-jar', location / 'run' / jar_name, '--nogui'])
+    run_task('run server jar', run_init_jar, location, jar_name)
     os.chdir(prev)
     run_task('unlock config files', lock.unlock)
 
@@ -101,6 +113,12 @@ def create_data(location: Path):
 def create_run(location: Path, data: Path, config: Path):
     link_item(config, location, 'eula.txt')
     link_item(config, location, 'server.properties')
+
+    link_item(config, location, 'ops.json')
+    link_item(config, location, 'whitelist.json')
+    link_item(config, location, 'banned-ips.json')
+    link_item(config, location, 'banned-players.json')
+
     link_item(data, location, 'logs')
     link_item(data, location, 'worlds')
 
@@ -121,6 +139,7 @@ def link_item(source: Path, destination: Path, item: str):
 
 def run_task(description: str, func, *args):
     try:
+        print(ident, f'[•] {description}', end='\r')
         result = func(*args)
     except Exception as e:
         print(ident, f'[✗] {description}')
